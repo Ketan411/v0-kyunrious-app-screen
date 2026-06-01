@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from "react"
 import { Calendar, Lightbulb, Check, X, Send, Shield, ChevronLeft, Star, Flame, Loader2 } from "lucide-react"
-import { useChat } from "@ai-sdk/react"
 
 type Screen = "home" | "subjects" | "chat" | "feedback" | "streak" | "teacher"
 
@@ -158,21 +157,106 @@ function SubjectPicker({ onNavigate }: { onNavigate: (screen: Screen) => void })
 }
 
 // ============ CHAT SCREEN ============
+interface Message {
+  id: string
+  role: "user" | "assistant"
+  content: string
+}
+
 function ChatScreen({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    initialMessages: [
-      {
-        id: "initial-1",
-        role: "assistant",
-        content: "Hey! You had Maths today. What did you cover? \uD83D\uDE0A",
-      },
-    ],
-  })
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: "initial-1",
+      role: "assistant",
+      content: "Hey! You had Maths today. What did you cover? \uD83D\uDE0A",
+    },
+  ])
+  const [input, setInput] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+
+  const sendMessage = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!input.trim() || isLoading) return
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: input.trim(),
+    }
+
+    setMessages((prev) => [...prev, userMessage])
+    setInput("")
+    setIsLoading(true)
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [...messages, userMessage].map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+        }),
+      })
+
+      if (!response.ok) throw new Error("Failed to get response")
+
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+      let assistantContent = ""
+
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "",
+      }
+      setMessages((prev) => [...prev, assistantMessage])
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value)
+          const lines = chunk.split("\n")
+
+          for (const line of lines) {
+            if (line.startsWith("0:")) {
+              try {
+                const text = JSON.parse(line.slice(2))
+                assistantContent += text
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMessage.id ? { ...m, content: assistantContent } : m
+                  )
+                )
+              } catch {
+                // Skip malformed lines
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("[v0] Chat error:", error)
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: "Sorry, I had trouble responding. Please try again!",
+        },
+      ])
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -216,17 +300,17 @@ function ChatScreen({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
       </main>
 
       <div className="px-4 py-4 bg-white border-t border-[#E2E8F0]">
-        <form onSubmit={handleSubmit} className="flex items-center gap-2">
+        <form onSubmit={sendMessage} className="flex items-center gap-2">
           <input
             type="text"
             value={input}
-            onChange={handleInputChange}
+            onChange={(e) => setInput(e.target.value)}
             placeholder="Type in English, Hindi, anything..."
             className="flex-1 bg-[#F1F5F9] rounded-full px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-[#0D7A5F]/20"
           />
           <button
             type="submit"
-            disabled={isLoading || !input?.trim()}
+            disabled={isLoading || !input.trim()}
             className="w-11 h-11 bg-[#0D7A5F] rounded-full flex items-center justify-center text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send className="w-5 h-5" />
