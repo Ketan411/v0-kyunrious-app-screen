@@ -232,6 +232,12 @@ function ChatScreen({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
             <Send className="w-5 h-5" />
           </button>
         </form>
+        <button
+          onClick={() => onNavigate("feedback")}
+          className="w-full mt-3 border-2 border-[#0D7A5F] text-[#0D7A5F] font-semibold py-3 px-6 rounded-full hover:bg-[#0D7A5F]/5 transition-colors text-sm"
+        >
+          Continue to Feedback
+        </button>
       </div>
 
       <div className="h-6 bg-white" />
