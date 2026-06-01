@@ -226,7 +226,7 @@ function ChatScreen({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
           />
           <button
             type="submit"
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || !input?.trim()}
             className="w-11 h-11 bg-[#0D7A5F] rounded-full flex items-center justify-center text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send className="w-5 h-5" />
