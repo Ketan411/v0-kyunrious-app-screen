@@ -1,18 +1,23 @@
-import { streamText } from "ai"
+import { streamText, convertToModelMessages, UIMessage, consumeStream } from "ai"
 import { createGoogleGenerativeAI } from "@ai-sdk/google"
 
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY,
 })
 
+export const maxDuration = 30
+
 export async function POST(req: Request) {
-  const { messages } = await req.json()
+  const { messages }: { messages: UIMessage[] } = await req.json()
 
   const result = streamText({
     model: google("gemini-1.5-flash"),
     system: `You are KYUNrious, a friendly AI learning companion for students. You help students understand their school subjects through engaging conversations. Keep your responses concise, use simple language appropriate for school students, and include emojis occasionally to keep things fun. Focus on making learning feel natural and curiosity-driven.`,
-    messages,
+    messages: await convertToModelMessages(messages),
+    abortSignal: req.signal,
   })
 
-  return result.toDataStreamResponse()
+  return result.toUIMessageStreamResponse({
+    consumeSseStream: consumeStream,
+  })
 }
