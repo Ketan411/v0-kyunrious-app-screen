@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { Calendar, Lightbulb, Check, X, Send, Shield, ChevronLeft, Star, Flame } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { Calendar, Lightbulb, Check, X, Send, Shield, ChevronLeft, Star, Flame, Loader2 } from "lucide-react"
+import { useChat } from "@ai-sdk/react"
 
 type Screen = "home" | "subjects" | "chat" | "feedback" | "streak" | "teacher"
 
@@ -158,15 +159,20 @@ function SubjectPicker({ onNavigate }: { onNavigate: (screen: Screen) => void })
 
 // ============ CHAT SCREEN ============
 function ChatScreen({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
-  const messages = [
-    { sender: "bot", text: "Hey! You had Maths today. What did you cover? \uD83D\uDE0A" },
-    { sender: "user", text: "Fractions. Didn't really get the word problems tbh" },
-    { sender: "bot", text: "Word problems are tricky! Key rule — 'of' means multiply, 'shared equally' means divide. Want an example?" },
-    { sender: "user", text: "yes" },
-    { sender: "bot", text: "If you have \u00BE of a pizza shared between 2 people, each gets \u215C. That's \u00BE \u00F7 2 = \u215C. Makes sense?" },
-    { sender: "user", text: "ohh okay yeah" },
-    { sender: "bot", text: "Nice! Before we move on — why do you think you learned fractions today? Take a guess \uD83E\uDD14" },
-  ]
+  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+    initialMessages: [
+      {
+        id: "initial-1",
+        role: "assistant",
+        content: "Hey! You had Maths today. What did you cover? \uD83D\uDE0A",
+      },
+    ],
+  })
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
 
   return (
     <div className="flex flex-col h-full">
@@ -186,35 +192,46 @@ function ChatScreen({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
       </header>
 
       <main className="flex-1 px-4 py-4 flex flex-col gap-3 overflow-y-auto bg-[#F8FAFC]">
-        {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
+        {messages.map((msg) => (
+          <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
             <div
               className={`max-w-[80%] px-4 py-3 text-sm leading-relaxed ${
-                msg.sender === "user"
+                msg.role === "user"
                   ? "bg-[#F1F5F9] text-[#1E293B] rounded-2xl rounded-br-md"
                   : "bg-[#D6E8F8] text-[#1E293B] rounded-2xl rounded-bl-md"
               }`}
             >
-              {msg.text}
+              {msg.content}
             </div>
           </div>
         ))}
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="bg-[#D6E8F8] text-[#1E293B] rounded-2xl rounded-bl-md px-4 py-3">
+              <Loader2 className="w-5 h-5 animate-spin" />
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
       </main>
 
       <div className="px-4 py-4 bg-white border-t border-[#E2E8F0]">
-        <div className="flex items-center gap-2">
+        <form onSubmit={handleSubmit} className="flex items-center gap-2">
           <input
             type="text"
+            value={input}
+            onChange={handleInputChange}
             placeholder="Type in English, Hindi, anything..."
             className="flex-1 bg-[#F1F5F9] rounded-full px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-[#0D7A5F]/20"
           />
           <button
-            onClick={() => onNavigate("feedback")}
-            className="w-11 h-11 bg-[#0D7A5F] rounded-full flex items-center justify-center text-white"
+            type="submit"
+            disabled={isLoading || !input.trim()}
+            className="w-11 h-11 bg-[#0D7A5F] rounded-full flex items-center justify-center text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send className="w-5 h-5" />
           </button>
-        </div>
+        </form>
       </div>
 
       <div className="h-6 bg-white" />
